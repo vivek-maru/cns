@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Secure Messaging App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f3f3;
+      padding: 40px;
+    }
+    h2 {
+      color: #b30000;
+    }
+    textarea, input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 15px 0;
+      background-color: #b30000;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .section {
+      background: white;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    pre {
+      background: #eee;
+      padding: 10px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🔐 Secure Messaging Web App</h2>
+
+  <div class="section">
+    <label>Enter your message:</label>
+    <textarea id="messageInput" rows="4"></textarea>
+    <button onclick="startEncryption()">Encrypt & Send</button>
+  </div>
+
+  <div class="section">
+    <h3>🔒 Encrypted Output</h3>
+    <strong>AES Key (Encrypted with RSA):</strong>
+    <pre id="encryptedKey"></pre>
+    <strong>Encrypted Message (AES):</strong>
+    <pre id="encryptedMessage"></pre>
+    <button onclick="decryptMessage()">Decrypt Message</button>
+  </div>
+
+  <div class="section">
+    <h3>🔓 Decrypted Message</h3>
+    <pre id="decryptedMessage"></pre>
+  </div>
+
+  <script>
+    let rsaKeyPair, aesKey, encryptedData, encryptedAesKey;
+
+    // Generate RSA key pair on page load
+    window.onload = async () => {
+      rsaKeyPair = await window.crypto.subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256"
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    };
+
+    // Convert ArrayBuffer to Base64
+    function ab2b64(buffer) {
+      return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    }
+
+    // Convert Base64 to ArrayBuffer
+    function b642ab(base64) {
+      const binary = atob(base64);
+      return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+    }
+
+    async function startEncryption() {
+      const message = document.getElementById("messageInput").value;
+      if (!message) return alert("Please enter a message.");
+
+      // Generate AES key
+      aesKey = await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      // Encode message
+      const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+      const encodedMsg = new TextEncoder().encode(message);
+
+      // Encrypt message
+      encryptedData = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        aesKey,
+        encodedMsg
+      );
+
+      // Export AES key and encrypt with RSA public key
+      const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+      encryptedAesKey = await crypto.subtle.encrypt(
+        { name: "RSA-OAEP" },
+        rsaKeyPair.publicKey,
+        rawAesKey
+      );
+
+      // Display encrypted output
+      document.getElementById("encryptedKey").textContent = ab2b64(encryptedAesKey);
+      document.getElementById("encryptedMessage").textContent = ab2b64(iv) + ":" + ab2b64(encryptedData);
+    }
+
+    async function decryptMessage() {
+      // Decrypt AES key using RSA private key
+      const decryptedAesKeyRaw = await crypto.subtle.decrypt(
+        { name: "RSA-OAEP" },
+        rsaKeyPair.privateKey,
+        encryptedAesKey
+      );
+
+      const aesKeyImported = await crypto.subtle.importKey(
+        "raw",
+        decryptedAesKeyRaw,
+        { name: "AES-GCM" },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      // Extract IV and encrypted data
+      const encParts = document.getElementById("encryptedMessage").textContent.split(":");
+      const iv = b642ab(encParts[0]);
+      const data = b642ab(encParts[1]);
+
+      // Decrypt message
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        aesKeyImported,
+        data
+      );
+
+      const decryptedText = new TextDecoder().decode(decryptedBuffer);
+      document.getElementById("decryptedMessage").textContent = decryptedText;
+    }
+  </script>
+
+</body>
+</html>
