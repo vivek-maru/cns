@@ -1,0 +1,33 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f3f3;
+  padding: 40px;
+}
+h2 {
+  color: #b30000;
+}
+textarea, input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+}
+button {
+  padding: 10px 20px;
+  margin: 15px 0;
+  background-color: #b30000;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+.section {
+  background: white;
+  padding: 20px;
+  margin-top: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+pre {
+  background: #eee;
+  padding: 10px;
+  overflow: auto;
+}
